@@ -1,3 +1,5 @@
+from tests.conftest import register
+
 SAMPLE = {
     "company": "Stripe",
     "role": "Senior Backend Engineer",
@@ -16,9 +18,29 @@ def test_health_no_auth(client):
 def test_auth_required(client):
     assert client.get("/api/applications").status_code == 401
     assert (
-        client.get("/api/applications", headers={"X-API-Key": "wrong"}).status_code
+        client.get(
+            "/api/applications", headers={"Authorization": "Bearer garbage"}
+        ).status_code
         == 401
     )
+
+
+def test_applications_are_per_user(client):
+    alice = register(client, "alice@example.com")
+    bob = register(client, "bob@example.com")
+
+    created = client.post("/api/applications", json=SAMPLE, headers=alice).json()
+    app_id = created["id"]
+
+    # Bob sees none of Alice's rows and can't touch them.
+    assert client.get("/api/applications", headers=bob).json() == []
+    assert client.patch(
+        f"/api/applications/{app_id}", json={"status": "Offer"}, headers=bob
+    ).status_code == 404
+    assert client.delete(f"/api/applications/{app_id}", headers=bob).status_code == 404
+
+    # Alice still sees hers.
+    assert len(client.get("/api/applications", headers=alice).json()) == 1
 
 
 def test_create_list_patch_delete(client, auth):

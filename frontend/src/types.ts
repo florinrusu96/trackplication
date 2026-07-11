@@ -1,3 +1,13 @@
+export interface User {
+  id: string;
+  email: string;
+}
+
+export interface TokenResponse {
+  token: string;
+  user: User;
+}
+
 export type Status =
   | "Applied"
   | "Interviewing"

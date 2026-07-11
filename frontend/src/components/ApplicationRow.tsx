@@ -12,6 +12,7 @@ interface Props {
   onCycleStatus: () => void;
   onNotes: (value: string) => void;
   onDelete: () => void;
+  onEdit: () => void;
 }
 
 function StatusPill({ status, onClick }: { status: Status; onClick: (e: React.MouseEvent) => void }) {
@@ -36,6 +37,7 @@ export default function ApplicationRow({
   onCycleStatus,
   onNotes,
   onDelete,
+  onEdit,
 }: Props) {
   const [notes, setNotes] = useState(app.notes);
   const timer = useRef<ReturnType<typeof setTimeout>>();
@@ -149,17 +151,30 @@ export default function ApplicationRow({
                   {app.source ? <>Posted on <span style={{ color: "#8b93a3" }}>{app.source}</span> · </> : null}
                   Applied <span style={{ color: "#8b93a3" }}>{fmtDate(app.applied_at)}</span>
                 </span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete();
-                  }}
-                  className="ml-auto flex items-center gap-1 rounded-md border px-2 py-1 text-[11px]"
-                  style={{ borderColor: "rgba(196,142,148,.25)", color: "#cf9aa0" }}
-                  title="Delete application"
-                >
-                  <TrashIcon /> Delete
-                </button>
+                <div className="ml-auto flex items-center gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit();
+                    }}
+                    className="rounded-md border px-2 py-1 text-[11px]"
+                    style={{ borderColor: "rgba(124,154,224,.25)", color: "#aebde8" }}
+                    title="Edit application"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete();
+                    }}
+                    className="flex items-center gap-1 rounded-md border px-2 py-1 text-[11px]"
+                    style={{ borderColor: "rgba(196,142,148,.25)", color: "#cf9aa0" }}
+                    title="Delete application"
+                  >
+                    <TrashIcon /> Delete
+                  </button>
+                </div>
               </div>
             </div>
             <div>

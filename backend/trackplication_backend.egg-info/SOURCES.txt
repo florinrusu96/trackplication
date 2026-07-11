@@ -8,6 +8,8 @@ app/main.py
 app/models.py
 app/routes.py
 app/schemas.py
+app/security.py
+tests/test_auth.py
 tests/test_crud.py
 tests/test_extraction.py
 trackplication_backend.egg-info/PKG-INFO

@@ -2,7 +2,13 @@ import { AppsIcon, ArchiveIcon, SettingsIcon, SparkleIcon } from "./icons";
 
 const kbd = "font-mono text-[10.5px] rounded px-1.5 py-px border";
 
-export default function Sidebar({ onOpenChat }: { onOpenChat: () => void }) {
+interface Props {
+  onOpenChat: () => void;
+  email: string;
+  onLogout: () => void;
+}
+
+export default function Sidebar({ onOpenChat, email, onLogout }: Props) {
   return (
     <div
       className="hidden w-56 flex-none flex-col border-r px-3.5 py-5 md:flex"
@@ -69,6 +75,21 @@ export default function Sidebar({ onOpenChat }: { onOpenChat: () => void }) {
               </kbd>
             </div>
           ))}
+        </div>
+
+        <div className="flex items-center gap-2 border-t pt-3" style={{ borderColor: "rgba(255,255,255,.06)" }}>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[12px]" style={{ color: "#8b93a3" }} title={email}>
+              {email}
+            </div>
+          </div>
+          <button
+            onClick={onLogout}
+            className="flex-none rounded-md border px-2 py-1 text-[11px]"
+            style={{ borderColor: "rgba(255,255,255,.08)", color: "#6b7280" }}
+          >
+            Log out
+          </button>
         </div>
       </div>
     </div>

@@ -1,15 +1,15 @@
-import type { Application, Extracted, Status } from "./types";
+import type { Application, Extracted, Status, TokenResponse, User } from "./types";
 
-const KEY_STORAGE = "trackplication_api_key";
+const TOKEN_STORAGE = "trackplication_token";
 
-export function getApiKey(): string | null {
-  return localStorage.getItem(KEY_STORAGE);
+export function getToken(): string | null {
+  return localStorage.getItem(TOKEN_STORAGE);
 }
-export function setApiKey(key: string): void {
-  localStorage.setItem(KEY_STORAGE, key);
+export function setToken(token: string): void {
+  localStorage.setItem(TOKEN_STORAGE, token);
 }
-export function clearApiKey(): void {
-  localStorage.removeItem(KEY_STORAGE);
+export function clearToken(): void {
+  localStorage.removeItem(TOKEN_STORAGE);
 }
 
 export class ApiError extends Error {
@@ -22,11 +22,12 @@ export class ApiError extends Error {
 }
 
 async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const token = getToken();
   const res = await fetch(path, {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      "X-API-Key": getApiKey() ?? "",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init.headers ?? {}),
     },
   });
@@ -45,6 +46,20 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
+  register: (email: string, password: string) =>
+    req<TokenResponse>("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    }),
+
+  login: (email: string, password: string) =>
+    req<TokenResponse>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    }),
+
+  me: () => req<User>("/api/auth/me"),
+
   listApplications: () => req<Application[]>("/api/applications"),
 
   extract: (text: string) =>
@@ -54,7 +69,12 @@ export const api = {
     }),
 
   createApplication: (
-    payload: Extracted & { status?: Status; notes?: string; raw_input?: string },
+    payload: Extracted & {
+      status?: Status;
+      notes?: string;
+      applied_at?: string;
+      raw_input?: string;
+    },
   ) =>
     req<Application>("/api/applications", {
       method: "POST",

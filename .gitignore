@@ -9,6 +9,10 @@ backend/.venv/
 node_modules/
 frontend/dist/
 
+# Local SQLite dev database
+*.db
+backend/*.db
+
 # Env / secrets
 .env
 backend/.env

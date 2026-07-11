@@ -7,11 +7,18 @@ interface Props {
   onCycleStatus: (app: Application) => void;
   onNotes: (id: string, value: string) => void;
   onDelete: (id: string) => void;
+  onEdit: (app: Application) => void;
 }
 
 const HEADERS = ["Company", "Role", "Location", "Salary", "Status", "Applied", "Source", "", ""];
 
-export default function ApplicationsTable({ apps, onCycleStatus, onNotes, onDelete }: Props) {
+export default function ApplicationsTable({
+  apps,
+  onCycleStatus,
+  onNotes,
+  onDelete,
+  onEdit,
+}: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   return (
@@ -45,6 +52,7 @@ export default function ApplicationsTable({ apps, onCycleStatus, onNotes, onDele
           onCycleStatus={() => onCycleStatus(app)}
           onNotes={(v) => onNotes(app.id, v)}
           onDelete={() => onDelete(app.id)}
+          onEdit={() => onEdit(app)}
         />
       ))}
 

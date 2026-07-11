@@ -1,20 +1,34 @@
-import secrets
+import uuid
 
-from fastapi import Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
+from sqlalchemy.orm import Session
 
-from app.config import get_settings
+from app.db import get_db
+from app.models import User
+from app.security import decode_token
+
+_UNAUTHORIZED = HTTPException(
+    status_code=status.HTTP_401_UNAUTHORIZED,
+    detail="Not authenticated",
+    headers={"WWW-Authenticate": "Bearer"},
+)
 
 
-def require_api_key(x_api_key: str | None = Header(default=None)) -> None:
-    """Guard every /api route (except health) with a shared key.
-
-    Single-user v1: the frontend prompts for the key once and stores it in
-    localStorage. Swap this dependency for a session/user lookup to add real
-    auth later.
-    """
-    expected = get_settings().app_api_key
-    if not x_api_key or not secrets.compare_digest(x_api_key, expected):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing API key",
-        )
+def get_current_user(
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+) -> User:
+    """Resolve the bearer JWT to a User, or raise 401."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise _UNAUTHORIZED
+    token = authorization.split(" ", 1)[1].strip()
+    user_id = decode_token(token)
+    if user_id is None:
+        raise _UNAUTHORIZED
+    try:
+        user = db.get(User, uuid.UUID(user_id))
+    except ValueError:
+        raise _UNAUTHORIZED from None
+    if user is None:
+        raise _UNAUTHORIZED
+    return user

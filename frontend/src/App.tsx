@@ -1,19 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, ApiError, clearApiKey, getApiKey } from "./api";
-import type { Application, Status } from "./types";
+import { api, ApiError, clearToken, getToken } from "./api";
+import type { Application, Status, User } from "./types";
 import { STATUS_ORDER, nextStatus } from "./theme";
-import ApiKeyGate from "./components/ApiKeyGate";
+import AuthGate from "./components/AuthGate";
 import Sidebar from "./components/Sidebar";
 import SummaryCards from "./components/SummaryCards";
 import Controls, { type SortKey } from "./components/Controls";
 import ApplicationsTable from "./components/ApplicationsTable";
+import ApplicationModal from "./components/ApplicationModal";
 import EmptyState from "./components/EmptyState";
 import ChatPanel from "./components/ChatPanel";
 import Toast, { type ToastData } from "./components/Toast";
 import { SparkleIcon } from "./components/icons";
 
 export default function App() {
-  const [hasKey, setHasKey] = useState(!!getApiKey());
+  const [user, setUser] = useState<User | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
   const [apps, setApps] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -23,9 +26,30 @@ export default function App() {
   const [sortKey, setSortKey] = useState<SortKey>("date_desc");
 
   const [chatOpen, setChatOpen] = useState(false);
+  // null = closed; { app: null } = add form; { app } = edit form.
+  const [modal, setModal] = useState<{ app: Application | null } | null>(null);
   const [toast, setToast] = useState<ToastData | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>();
   const searchRef = useRef<HTMLInputElement>(null);
+
+  function logout() {
+    clearToken();
+    setUser(null);
+    setApps([]);
+  }
+
+  // Validate any stored token on mount.
+  useEffect(() => {
+    if (!getToken()) {
+      setAuthChecked(true);
+      return;
+    }
+    api
+      .me()
+      .then(setUser)
+      .catch(() => clearToken())
+      .finally(() => setAuthChecked(true));
+  }, []);
 
   async function load() {
     setLoading(true);
@@ -34,8 +58,7 @@ export default function App() {
       setApps(await api.listApplications());
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        clearApiKey();
-        setHasKey(false);
+        logout();
         return;
       }
       setLoadError(err instanceof Error ? err.message : "Failed to load");
@@ -45,8 +68,8 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (hasKey) load();
-  }, [hasKey]);
+    if (user) load();
+  }, [user]);
 
   // `/` focuses search (unless already typing in a field).
   useEffect(() => {
@@ -73,13 +96,23 @@ export default function App() {
     showToast({ company: app.company, role: app.role });
   }
 
+  function onSaved(app: Application, isNew: boolean) {
+    if (isNew) {
+      setApps((cur) => [app, ...cur]);
+      showToast({ company: app.company, role: app.role });
+    } else {
+      setApps((cur) => cur.map((a) => (a.id === app.id ? app : a)));
+    }
+  }
+
   async function patchOptimistic(id: string, patch: Partial<Application>) {
     const prev = apps;
     setApps((cur) => cur.map((a) => (a.id === id ? { ...a, ...patch } : a)));
     try {
       const updated = await api.updateApplication(id, patch);
       setApps((cur) => cur.map((a) => (a.id === id ? updated : a)));
-    } catch {
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) return logout();
       setApps(prev); // rollback
     }
   }
@@ -131,13 +164,14 @@ export default function App() {
     return list;
   }, [apps, search, statusFilter, sortKey]);
 
-  if (!hasKey) return <ApiKeyGate onSaved={() => setHasKey(true)} />;
+  if (!authChecked) return <div className="h-screen" />;
+  if (!user) return <AuthGate onAuthed={setUser} />;
 
   const isEmpty = apps.length === 0 && !loading && !loadError;
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
-      <Sidebar onOpenChat={() => setChatOpen(true)} />
+      <Sidebar onOpenChat={() => setChatOpen(true)} email={user.email} onLogout={logout} />
 
       {/* Mobile logo bar */}
       <div
@@ -146,6 +180,13 @@ export default function App() {
       >
         <div className="h-[20px] w-[20px] rounded-md" style={{ background: "linear-gradient(155deg,#7c9ae0,#5b78bf)" }} />
         <div className="text-[14px] font-semibold" style={{ color: "#f2f3f5" }}>Tracker</div>
+        <button
+          onClick={logout}
+          className="ml-auto rounded-md border px-2 py-1 text-[11px]"
+          style={{ borderColor: "rgba(255,255,255,.08)", color: "#6b7280" }}
+        >
+          Log out
+        </button>
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col overflow-y-auto pt-[52px] md:pt-0">
@@ -159,6 +200,13 @@ export default function App() {
                 Add applications by pasting a posting into the AI assistant.
               </div>
             </div>
+            <button
+              onClick={() => setModal({ app: null })}
+              className="flex-none rounded-lg border px-3 py-2 text-[13px] font-medium"
+              style={{ borderColor: "rgba(124,154,224,.3)", background: "rgba(124,154,224,.12)", color: "#aebde8" }}
+            >
+              + Add manually
+            </button>
           </div>
 
           <SummaryCards
@@ -200,6 +248,7 @@ export default function App() {
               onCycleStatus={cycleStatus}
               onNotes={editNotes}
               onDelete={remove}
+              onEdit={(app) => setModal({ app })}
             />
           )}
         </div>
@@ -222,6 +271,14 @@ export default function App() {
       )}
 
       <ChatPanel open={chatOpen} onClose={() => setChatOpen(false)} onCreated={onCreated} />
+
+      {modal && (
+        <ApplicationModal
+          application={modal.app}
+          onClose={() => setModal(null)}
+          onSaved={onSaved}
+        />
+      )}
 
       {toast && <Toast toast={toast} />}
     </div>
