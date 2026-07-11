@@ -136,7 +136,10 @@ export default function App() {
   }
 
   const counts = useMemo(() => {
-    const c = Object.fromEntries(STATUS_ORDER.map((s) => [s, 0])) as Record<Status, number>;
+    const c = Object.fromEntries(STATUS_ORDER.map((s) => [s, 0])) as Record<
+      Status,
+      number
+    >;
     for (const a of apps) c[a.status]++;
     return c;
   }, [apps]);
@@ -145,20 +148,29 @@ export default function App() {
     const q = search.trim().toLowerCase();
     let list = apps.filter((a) => {
       if (statusFilter !== "all" && a.status !== statusFilter) return false;
-      if (q && !a.company.toLowerCase().includes(q) && !a.role.toLowerCase().includes(q))
+      if (
+        q &&
+        !a.company.toLowerCase().includes(q) &&
+        !a.role.toLowerCase().includes(q)
+      )
         return false;
       return true;
     });
     list = [...list].sort((a, b) => {
       switch (sortKey) {
         case "date_desc":
-          return b.applied_at.localeCompare(a.applied_at) || b.created_at.localeCompare(a.created_at);
+          return (
+            b.applied_at.localeCompare(a.applied_at) ||
+            b.created_at.localeCompare(a.created_at)
+          );
         case "date_asc":
           return a.applied_at.localeCompare(b.applied_at);
         case "company_asc":
           return a.company.localeCompare(b.company);
         case "status":
-          return STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status);
+          return (
+            STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status)
+          );
       }
     });
     return list;
@@ -171,18 +183,27 @@ export default function App() {
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
-      <Sidebar onOpenChat={() => setChatOpen(true)} email={user.email} onLogout={logout} />
+      <Sidebar
+        onOpenChat={() => setChatOpen(true)}
+        email={user.email}
+        onLogout={logout}
+      />
 
       {/* Mobile logo bar */}
       <div
         className="fixed inset-x-0 top-0 z-10 flex items-center gap-2 border-b px-4 py-3 md:hidden"
         style={{ background: "#101318", borderColor: "rgba(255,255,255,.06)" }}
       >
-        <div className="h-[20px] w-[20px] rounded-md" style={{ background: "linear-gradient(155deg,#7c9ae0,#5b78bf)" }} />
-        <div className="text-[14px] font-semibold" style={{ color: "#f2f3f5" }}>Tracker</div>
+        <div
+          className="h-[20px] w-[20px] rounded-md"
+          style={{ background: "linear-gradient(155deg,#7c9ae0,#5b78bf)" }}
+        />
+        <div className="text-[14px] font-semibold" style={{ color: "#f2f3f5" }}>
+          Tracker
+        </div>
         <button
           onClick={logout}
-          className="ml-auto rounded-md border px-2 py-1 text-[11px]"
+          className="cursor-pointer ml-auto rounded-md border px-2 py-1 text-[11px]"
           style={{ borderColor: "rgba(255,255,255,.08)", color: "#6b7280" }}
         >
           Log out
@@ -193,7 +214,10 @@ export default function App() {
         <div className="px-5 pt-6 md:px-8">
           <div className="flex items-start justify-between gap-5">
             <div>
-              <div className="text-[20px] font-semibold tracking-tight" style={{ color: "#f5f6f8" }}>
+              <div
+                className="text-[20px] font-semibold tracking-tight"
+                style={{ color: "#f5f6f8" }}
+              >
                 Applications
               </div>
               <div className="mt-0.5 text-[13px]" style={{ color: "#6b7280" }}>
@@ -202,8 +226,12 @@ export default function App() {
             </div>
             <button
               onClick={() => setModal({ app: null })}
-              className="flex-none rounded-lg border px-3 py-2 text-[13px] font-medium"
-              style={{ borderColor: "rgba(124,154,224,.3)", background: "rgba(124,154,224,.12)", color: "#aebde8" }}
+              className="cursor-pointer flex-none rounded-lg border px-3 py-2 text-[13px] font-medium"
+              style={{
+                borderColor: "rgba(124,154,224,.3)",
+                background: "rgba(124,154,224,.12)",
+                color: "#aebde8",
+              }}
             >
               + Add manually
             </button>
@@ -231,15 +259,20 @@ export default function App() {
 
         <div className="flex-1 px-5 pb-10 pt-5 md:px-8">
           {loadError && (
-            <div className="rounded-lg border px-4 py-3 text-[13px]" style={{ borderColor: "rgba(196,142,148,.25)", color: "#cf9aa0" }}>
+            <div
+              className="rounded-lg border px-4 py-3 text-[13px]"
+              style={{ borderColor: "rgba(196,142,148,.25)", color: "#cf9aa0" }}
+            >
               {loadError}{" "}
-              <button className="underline" onClick={load}>
+              <button className="cursor-pointer underline" onClick={load}>
                 Retry
               </button>
             </div>
           )}
           {loading && !loadError && (
-            <div className="px-1 py-8 text-[13px]" style={{ color: "#5b6270" }}>Loading…</div>
+            <div className="px-1 py-8 text-[13px]" style={{ color: "#5b6270" }}>
+              Loading…
+            </div>
           )}
           {isEmpty && <EmptyState onOpenChat={() => setChatOpen(true)} />}
           {!loading && !loadError && !isEmpty && (
@@ -259,7 +292,7 @@ export default function App() {
         <button
           onClick={() => setChatOpen(true)}
           title="AI capture assistant"
-          className="fixed bottom-6 right-6 z-20 flex h-[52px] w-[52px] items-center justify-center rounded-full border text-white"
+          className="cursor-pointer fixed bottom-6 right-6 z-20 flex h-[52px] w-[52px] items-center justify-center rounded-full border text-white"
           style={{
             borderColor: "rgba(124,154,224,.3)",
             background: "linear-gradient(155deg,#7c9ae0,#5b78bf)",
@@ -270,7 +303,11 @@ export default function App() {
         </button>
       )}
 
-      <ChatPanel open={chatOpen} onClose={() => setChatOpen(false)} onCreated={onCreated} />
+      <ChatPanel
+        open={chatOpen}
+        onClose={() => setChatOpen(false)}
+        onCreated={onCreated}
+      />
 
       {modal && (
         <ApplicationModal

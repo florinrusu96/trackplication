@@ -19,7 +19,10 @@ export default function Sidebar({ onOpenChat, email, onLogout }: Props) {
           className="h-[22px] w-[22px] flex-none rounded-md"
           style={{ background: "linear-gradient(155deg,#7c9ae0,#5b78bf)" }}
         />
-        <div className="text-[14.5px] font-semibold tracking-tight" style={{ color: "#f2f3f5" }}>
+        <div
+          className="text-[14.5px] font-semibold tracking-tight"
+          style={{ color: "#f2f3f5" }}
+        >
           Tracker
         </div>
       </div>
@@ -31,15 +34,27 @@ export default function Sidebar({ onOpenChat, email, onLogout }: Props) {
         >
           <AppsIcon /> Applications
         </div>
-        <div className="flex items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-[13.5px]" style={{ color: "#5b6270" }}>
+        <div
+          className="flex items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-[13.5px]"
+          style={{ color: "#5b6270" }}
+        >
           <ArchiveIcon /> Archive
-          <span className="ml-auto text-[10px] font-semibold" style={{ color: "#3d4250" }}>
+          <span
+            className="ml-auto text-[10px] font-semibold"
+            style={{ color: "#3d4250" }}
+          >
             SOON
           </span>
         </div>
-        <div className="flex items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-[13.5px]" style={{ color: "#5b6270" }}>
+        <div
+          className="flex items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-[13.5px]"
+          style={{ color: "#5b6270" }}
+        >
           <SettingsIcon /> Settings
-          <span className="ml-auto text-[10px] font-semibold" style={{ color: "#3d4250" }}>
+          <span
+            className="ml-auto text-[10px] font-semibold"
+            style={{ color: "#3d4250" }}
+          >
             SOON
           </span>
         </div>
@@ -48,7 +63,7 @@ export default function Sidebar({ onOpenChat, email, onLogout }: Props) {
       <div className="mt-auto flex flex-col gap-2.5">
         <button
           onClick={onOpenChat}
-          className="flex items-center justify-center gap-2 rounded-lg border px-2.5 py-[9px] text-[12.5px] font-medium"
+          className="cursor-pointer flex items-center justify-center gap-2 rounded-lg border px-2.5 py-[9px] text-[12.5px] font-medium"
           style={{
             borderColor: "rgba(124,154,224,.25)",
             background: "rgba(124,154,224,.08)",
@@ -57,8 +72,14 @@ export default function Sidebar({ onOpenChat, email, onLogout }: Props) {
         >
           <SparkleIcon size={13} /> Add via AI
         </button>
-        <div className="flex flex-col gap-1.5 border-t pt-3" style={{ borderColor: "rgba(255,255,255,.06)" }}>
-          <div className="px-0.5 text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: "#4a5060" }}>
+        <div
+          className="flex flex-col gap-1.5 border-t pt-3"
+          style={{ borderColor: "rgba(255,255,255,.06)" }}
+        >
+          <div
+            className="px-0.5 text-[10.5px] font-semibold uppercase tracking-wider"
+            style={{ color: "#4a5060" }}
+          >
             Shortcuts
           </div>
           {[
@@ -70,22 +91,36 @@ export default function Sidebar({ onOpenChat, email, onLogout }: Props) {
               <span className="text-[12px]" style={{ color: "#5b6270" }}>
                 {label}
               </span>
-              <kbd className={kbd} style={{ background: "#1a1e26", borderColor: "rgba(255,255,255,.08)", color: "#8b93a3" }}>
+              <kbd
+                className={kbd}
+                style={{
+                  background: "#1a1e26",
+                  borderColor: "rgba(255,255,255,.08)",
+                  color: "#8b93a3",
+                }}
+              >
                 {key}
               </kbd>
             </div>
           ))}
         </div>
 
-        <div className="flex items-center gap-2 border-t pt-3" style={{ borderColor: "rgba(255,255,255,.06)" }}>
+        <div
+          className="flex items-center gap-2 border-t pt-3"
+          style={{ borderColor: "rgba(255,255,255,.06)" }}
+        >
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[12px]" style={{ color: "#8b93a3" }} title={email}>
+            <div
+              className="truncate text-[12px]"
+              style={{ color: "#8b93a3" }}
+              title={email}
+            >
               {email}
             </div>
           </div>
           <button
             onClick={onLogout}
-            className="flex-none rounded-md border px-2 py-1 text-[11px]"
+            className="cursor-pointer flex-none rounded-md border px-2 py-1 text-[11px]"
             style={{ borderColor: "rgba(255,255,255,.08)", color: "#6b7280" }}
           >
             Log out
