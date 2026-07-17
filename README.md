@@ -18,7 +18,7 @@ Browser (desktop + phone)
 
 FastAPI (one container)
   ├─ /api/*  REST → SQLAlchemy → SQLite (dev) / Postgres (prod)
-  ├─ /api/extract → Anthropic API (messages.parse, schema-enforced)
+  ├─ /api/extract → extraction provider (Claude API in prod, local Ollama in dev; schema-enforced)
   └─ /*      StaticFiles: built React bundle (SPA fallback to index.html)
 ```
 
@@ -58,7 +58,7 @@ created automatically). Just Python 3.11+ and Node 20+. Production uses Postgres
 # 1. Backend
 cd backend
 python -m venv .venv && .venv/bin/pip install -e ".[dev]"
-cp .env.example .env        # fill in ANTHROPIC_API_KEY
+cp .env.example .env        # pick an extraction backend — see below
 source .venv/bin/activate # start the venv
 alembic upgrade head          # creates trackplication.db
 uvicorn app.main:app --reload # → http://localhost:8000
@@ -71,6 +71,41 @@ npm run dev                  # → http://localhost:5173  (proxies /api to :8000
 
 Open http://localhost:5173. On first load, **sign up** with an email and password; the
 JWT is stored in `localStorage`.
+
+### Extraction backend: Claude API or local Ollama
+
+`POST /api/extract` runs through one of two providers, selected by `EXTRACTION_PROVIDER`.
+Both return the same schema-validated result — the app code is identical either way.
+
+**Option A — local Ollama (free, offline, recommended for dev).** No API key or credits;
+runs a small local model. Install [Ollama](https://ollama.com), pull the model, and point
+the app at it:
+
+```bash
+ollama pull gemma4:e4b       # ~ small, fast; any instruct model works
+# in backend/.env:
+EXTRACTION_PROVIDER=ollama
+OLLAMA_MODEL=gemma4:e4b
+# OLLAMA_BASE_URL=http://localhost:11434   # default; override if remote
+```
+
+Ollama's daemon must be running (`ollama serve`, or the app on macOS starts it). First
+extraction is slower (~10s while the model loads); subsequent calls are faster. Quality is
+lower than Claude but fine for building/testing the pipeline.
+
+**Option B — Claude API (production path).** Real quality, costs credits. Extraction is
+~$0.0045/request on Haiku, so a few dollars of credit covers all dev + demos:
+
+```bash
+# in backend/.env:
+EXTRACTION_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-...      # needs a funded API account (separate from a Claude.ai sub)
+# ANTHROPIC_MODEL=claude-haiku-4-5  # default; set claude-opus-4-8 for best quality
+```
+
+> The Anthropic **API** is billed separately from a Claude.ai Pro/Max subscription — a
+> subscription does **not** grant API access. Restart uvicorn after changing provider/keys
+> (settings are cached at startup).
 
 Run backend tests (self-contained, in-memory SQLite — no setup):
 
@@ -123,8 +158,11 @@ New migrations are portable across SQLite and Postgres: stick to `sa.Uuid`, `sa.
 | Var | Purpose |
 |---|---|
 | `DATABASE_URL` | DB connection. Unset locally → SQLite file. Railway sets it to Postgres. |
-| `ANTHROPIC_API_KEY` | For the extraction endpoint. |
-| `ANTHROPIC_MODEL` | Optional. Defaults to `claude-opus-4-8`; set `claude-haiku-4-5` for cheaper/faster extraction. |
+| `EXTRACTION_PROVIDER` | `anthropic` (Claude API — default, prod) or `ollama` (free local model for dev). |
+| `ANTHROPIC_API_KEY` | Claude API key. Required when `EXTRACTION_PROVIDER=anthropic`. |
+| `ANTHROPIC_MODEL` | Optional. Defaults to `claude-haiku-4-5` (cheap, structured-output capable). |
+| `OLLAMA_MODEL` | Optional. Model for the `ollama` provider. Defaults to `gemma4:e4b`. |
+| `OLLAMA_BASE_URL` | Optional. Ollama daemon URL. Defaults to `http://localhost:11434`. |
 | `JWT_SECRET` | Signs auth tokens. **Set a strong random value (≥32 bytes) in production.** |
 
 ## Deploy (Railway)
