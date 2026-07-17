@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -8,7 +9,16 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_user
 from app.db import get_db
 from app.extraction import extract_application
+from app.fetch import (
+    FetchError,
+    extract_url,
+    fetch_jd_text,
+    infer_source,
+    is_safe_url,
+    sanitize_jd_text,
+)
 from app.models import Application, User
+from app.ratelimit import rate_limit_extract
 from app.schemas import (
     ApplicationCreate,
     ApplicationOut,
@@ -21,6 +31,8 @@ from app.schemas import (
     UserOut,
 )
 from app.security import create_token, hash_password, verify_password
+
+logger = logging.getLogger(__name__)
 
 # --- Auth (unauthenticated except /me) ---------------------------------------
 
@@ -81,15 +93,64 @@ def _get_owned_or_404(db: Session, user: User, app_id: uuid.UUID) -> Application
 
 
 @router.post("/extract", response_model=ExtractedApplication)
-def extract(payload: ExtractRequest) -> ExtractedApplication:
-    """Extract structured fields from raw text. Saves nothing."""
+def extract(
+    payload: ExtractRequest,
+    _rl: None = Depends(rate_limit_extract),
+) -> ExtractedApplication:
+    """Extract structured fields from raw text or a pasted job-posting URL.
+
+    If the message contains a URL, the server fetches and cleans the page
+    (SSRF-guarded) and extracts from that. Non-job input is rejected. Saves
+    nothing — the frontend confirm card drives the actual INSERT.
+    """
+    url = extract_url(payload.text)
+    if url:
+        logger.info("extract: detected URL, fetching %s", url)
+        if not is_safe_url(url):
+            logger.warning("extract: blocked unsafe URL %s", url)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="That link can't be fetched.",
+            )
+        try:
+            jd_text = sanitize_jd_text(fetch_jd_text(url))
+            logger.info("extract: fetched %d chars from %s", len(jd_text), url)
+        except FetchError as exc:
+            logger.warning("extract: fetch failed for %s: %s", url, exc)
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Couldn't read that link — paste the job description text instead.",
+            ) from exc
+    else:
+        jd_text = payload.text
+        logger.info("extract: raw text input (%d chars)", len(jd_text))
+
     try:
-        return extract_application(payload.text)
+        result = extract_application(jd_text)
     except Exception as exc:  # noqa: BLE001 — surface any Claude/SDK failure as 502
+        # Log the full traceback server-side; the client only gets the message.
+        logger.exception("extract: extraction call failed")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Extraction failed: {exc}",
         ) from exc
+
+    if not result.is_job_posting:
+        logger.info("extract: input classified as non-job, rejected")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="I can only pull details from a job posting. Paste a job description or a link to one.",
+        )
+    logger.info("extract: ok — %s / %s", result.company, result.role)
+
+    fields = ExtractedApplication.model_validate(
+        result.model_dump(exclude={"is_job_posting"})
+    )
+    if url:
+        fields.url = url
+        if fields.source is None:
+            fields.source = infer_source(url)
+    return fields
 
 
 @router.get("/applications", response_model=list[ApplicationOut])

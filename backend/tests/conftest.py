@@ -37,6 +37,9 @@ def _schema():
 
 @pytest.fixture(autouse=True)
 def _clean_tables():
+    from app import ratelimit
+
+    ratelimit.reset()
     with _engine.begin() as conn:
         for table in reversed(Base.metadata.sorted_tables):
             conn.execute(table.delete())

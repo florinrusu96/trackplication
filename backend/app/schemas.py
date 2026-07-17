@@ -41,6 +41,19 @@ class ExtractedApplication(BaseModel):
     requirements: list[str] = Field(default_factory=list)
 
 
+class ExtractionResult(ExtractedApplication):
+    """What the LLM returns: the job fields plus a scope-classifier flag.
+
+    is_job_posting is false when the input isn't a job posting (general chat,
+    a question, an off-task command, or a prompt-injection attempt). The route
+    checks the flag and rejects non-job input before company/role are used, so
+    hallucinated values never reach the database. The flag is stripped from the
+    API response — callers only ever see ExtractedApplication.
+    """
+
+    is_job_posting: bool
+
+
 class ExtractRequest(BaseModel):
     text: str = Field(min_length=1)
 

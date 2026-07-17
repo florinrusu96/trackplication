@@ -1,3 +1,4 @@
+import logging
 import os
 
 from fastapi import FastAPI
@@ -8,7 +9,26 @@ from app.config import get_settings
 from app.routes import auth_router, router
 
 
+def _configure_logging(level: str) -> None:
+    """Attach a stream handler to the `app` logger namespace.
+
+    Uvicorn configures its own loggers but leaves the root logger without a
+    handler, so app.* messages would otherwise be dropped. Set the level on the
+    `app` logger and give it a dedicated handler that doesn't propagate to root.
+    """
+    app_logger = logging.getLogger("app")
+    app_logger.setLevel(level.upper())
+    if not app_logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(
+            logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+        )
+        app_logger.addHandler(handler)
+    app_logger.propagate = False
+
+
 def create_app() -> FastAPI:
+    _configure_logging(get_settings().log_level)
     app = FastAPI(title="Trackplication")
 
     @app.get("/api/health")

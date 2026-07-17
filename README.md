@@ -59,8 +59,9 @@ created automatically). Just Python 3.11+ and Node 20+. Production uses Postgres
 cd backend
 python -m venv .venv && .venv/bin/pip install -e ".[dev]"
 cp .env.example .env        # fill in ANTHROPIC_API_KEY
-.venv/bin/alembic upgrade head          # creates trackplication.db
-.venv/bin/uvicorn app.main:app --reload # → http://localhost:8000
+source .venv/bin/activate # start the venv
+alembic upgrade head          # creates trackplication.db
+uvicorn app.main:app --reload # → http://localhost:8000
 
 # 2. Frontend (separate terminal)
 cd frontend
