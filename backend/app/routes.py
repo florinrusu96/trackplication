@@ -128,11 +128,12 @@ def extract(
     try:
         result = extract_application(jd_text)
     except Exception as exc:  # noqa: BLE001 — surface any Claude/SDK failure as 502
-        # Log the full traceback server-side; the client only gets the message.
+        # Log the full traceback server-side; return a generic message so we
+        # don't leak internal errors / model names / library internals to the client.
         logger.exception("extract: extraction call failed")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Extraction failed: {exc}",
+            detail="Extraction failed — please try again.",
         ) from exc
 
     if not result.is_job_posting:

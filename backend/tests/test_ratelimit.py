@@ -1,3 +1,5 @@
+import time
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import app.ratelimit as rl
@@ -44,3 +46,16 @@ def test_window_resets_after_interval(client, auth, monkeypatch):
     assert r1.status_code == 200
     assert r2.status_code == 429
     assert r3.status_code == 200
+
+
+def test_prune_evicts_stale_entries_over_threshold():
+    rl.reset()
+    now = time.monotonic()
+    with rl._lock:
+        for i in range(rl._MAX_KEYS + 5):
+            rl._last_seen[f"stale{i}"] = now - (rl.WINDOW_SECONDS + 100)
+    # A fresh request over the threshold triggers the prune of stale entries.
+    rl.rate_limit_extract(user=SimpleNamespace(id="fresh"))
+    assert "fresh" in rl._last_seen
+    assert not any(k.startswith("stale") for k in rl._last_seen)
+    rl.reset()

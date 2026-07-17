@@ -40,9 +40,16 @@ LinkedIn, Indeed, Company Site, Wellfound, Greenhouse, Lever. Null if not infera
 """
 
 
+_DELIM_OPEN = "<job_page_content>"
+_DELIM_CLOSE = "</job_page_content>"
+
+
 def _user_content(text: str) -> str:
     # Content is delimited and treated as untrusted data (see SYSTEM_PROMPT).
-    return f"<job_page_content>\n{text}\n</job_page_content>"
+    # Strip the delimiter tags from the content itself so a hostile page can't
+    # close the block early and inject text that reads as outside-the-data.
+    safe = text.replace(_DELIM_CLOSE, "").replace(_DELIM_OPEN, "")
+    return f"{_DELIM_OPEN}\n{safe}\n{_DELIM_CLOSE}"
 
 
 @lru_cache

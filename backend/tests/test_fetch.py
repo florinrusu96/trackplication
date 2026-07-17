@@ -1,6 +1,11 @@
+from contextlib import contextmanager
 from unittest.mock import patch
 
+import pytest
+
+from app import fetch
 from app.fetch import (
+    FetchError,
     extract_url,
     infer_source,
     is_safe_url,
@@ -55,6 +60,12 @@ def test_is_safe_url_blocks_loopback():
         assert is_safe_url("http://localhost:8000") is False
 
 
+def test_is_safe_url_blocks_cgnat_range():
+    # 100.64.0.0/10 — carrier-grade NAT, not flagged by ipaddress.is_* checks.
+    with patch("app.fetch.socket.getaddrinfo", return_value=_addrinfo("100.64.1.1")):
+        assert is_safe_url("https://cgnat.example") is False
+
+
 def test_is_safe_url_rejects_unresolvable_host():
     import socket
 
@@ -87,3 +98,59 @@ def test_infer_source_known_domains():
 
 def test_infer_source_unknown_domain():
     assert infer_source("https://careers.acme.com/123") is None
+
+
+# --- _get_html body cap (streaming) ------------------------------------------
+
+class _FakeResp:
+    def __init__(self, chunks, headers=None, encoding="utf-8", is_redirect=False):
+        self._chunks = chunks
+        self.headers = headers or {}
+        self.encoding = encoding
+        self.is_redirect = is_redirect
+
+    def raise_for_status(self):
+        pass
+
+    def iter_bytes(self):
+        yield from self._chunks
+
+
+class _FakeClient:
+    def __init__(self, resp):
+        self._resp = resp
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    @contextmanager
+    def stream(self, _method, _url, headers=None):
+        yield self._resp
+
+
+def _patch_fetch(monkeypatch, resp):
+    monkeypatch.setattr(fetch, "is_safe_url", lambda _url: True)
+    monkeypatch.setattr(fetch.httpx, "Client", lambda **_kw: _FakeClient(resp))
+
+
+def test_get_html_returns_small_body(monkeypatch):
+    _patch_fetch(monkeypatch, _FakeResp([b"<html>hi</html>"]))
+    assert fetch._get_html("http://93.184.216.34/") == "<html>hi</html>"
+
+
+def test_get_html_rejects_streamed_oversize(monkeypatch):
+    # No content-length header — cap must trip mid-stream, not just on the header.
+    chunk = b"x" * (fetch._MAX_BYTES + 1)
+    _patch_fetch(monkeypatch, _FakeResp([chunk]))
+    with pytest.raises(FetchError):
+        fetch._get_html("http://93.184.216.34/")
+
+
+def test_get_html_rejects_declared_oversize(monkeypatch):
+    resp = _FakeResp([b"x"], headers={"content-length": str(fetch._MAX_BYTES + 1)})
+    _patch_fetch(monkeypatch, resp)
+    with pytest.raises(FetchError):
+        fetch._get_html("http://93.184.216.34/")

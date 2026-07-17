@@ -31,9 +31,17 @@ _INVISIBLE_RE = re.compile(
 )
 
 _MAX_CHARS = 20_000
+_MAX_BYTES = 3_000_000  # cap fetched body to avoid OOM on a hostile large response
 _MAX_REDIRECTS = 3
 _TIMEOUT = 10.0
 _USER_AGENT = "Mozilla/5.0 (compatible; TrackplicationBot/1.0)"
+
+# Ranges ipaddress doesn't flag but that can still reach internal infra in some
+# cloud/container networks: carrier-grade NAT and benchmarking (RFC 2544).
+_EXTRA_BLOCKED = (
+    ipaddress.ip_network("100.64.0.0/10"),
+    ipaddress.ip_network("198.18.0.0/15"),
+)
 
 _KNOWN_SOURCES = {
     "linkedin.com": "LinkedIn",
@@ -87,6 +95,8 @@ def is_safe_url(url: str) -> bool:
             or ip.is_unspecified
         ):
             return False
+        if ip.version == 4 and any(ip in net for net in _EXTRA_BLOCKED):
+            return False
 
     return True
 
@@ -107,15 +117,27 @@ def _get_html(url: str) -> str:
         for _ in range(_MAX_REDIRECTS + 1):
             if not is_safe_url(url):
                 raise FetchError("URL resolves to a blocked address")
-            resp = http.get(url, headers=headers)
-            if resp.is_redirect:
-                location = resp.headers.get("location")
-                if not location:
-                    raise FetchError("Redirect without a location")
-                url = str(resp.url.join(location))
-                continue
-            resp.raise_for_status()
-            return resp.text
+            # Stream so we never hold more than _MAX_BYTES in memory — a hostile
+            # URL could otherwise return a multi-GB body and OOM the worker.
+            with http.stream("GET", url, headers=headers) as resp:
+                if resp.is_redirect:
+                    location = resp.headers.get("location")
+                    if not location:
+                        raise FetchError("Redirect without a location")
+                    url = str(resp.url.join(location))
+                    continue
+                resp.raise_for_status()
+                declared = resp.headers.get("content-length")
+                if declared and declared.isdigit() and int(declared) > _MAX_BYTES:
+                    raise FetchError("Response too large")
+                chunks: list[bytes] = []
+                total = 0
+                for chunk in resp.iter_bytes():
+                    total += len(chunk)
+                    if total > _MAX_BYTES:
+                        raise FetchError("Response too large")
+                    chunks.append(chunk)
+                return b"".join(chunks).decode(resp.encoding or "utf-8", errors="replace")
     raise FetchError("Too many redirects")
 
 

@@ -16,9 +16,23 @@ from app.auth import get_current_user
 from app.models import User
 
 WINDOW_SECONDS = 10.0
+# Cap the store so it can't grow one entry per user forever. Pruning is
+# threshold-gated so it's not an O(n) sweep on every request.
+_MAX_KEYS = 10_000
 
 _lock = threading.Lock()
 _last_seen: dict[str, float] = {}
+
+
+def _prune_locked(now: float) -> None:
+    """Drop entries older than the window. Caller must hold _lock.
+
+    An entry older than WINDOW_SECONDS would pass the limit anyway, so removing
+    it changes no behavior — it only bounds memory.
+    """
+    cutoff = now - WINDOW_SECONDS
+    for key in [k for k, ts in _last_seen.items() if ts < cutoff]:
+        del _last_seen[key]
 
 
 def reset() -> None:
@@ -40,4 +54,6 @@ def rate_limit_extract(user: User = Depends(get_current_user)) -> None:
                 detail="You're going a bit fast — wait a few seconds and try again.",
                 headers={"Retry-After": str(retry_after)},
             )
+        if len(_last_seen) > _MAX_KEYS:
+            _prune_locked(now)
         _last_seen[key] = now
